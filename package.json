@@ -14,7 +14,8 @@
     "@netlify/blobs": "^10.7.4",
     "nanoid": "^5.1.11",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "react-router-dom": "^7.15.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

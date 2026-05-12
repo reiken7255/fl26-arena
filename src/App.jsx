@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, memo } from "react";
 
 const teamLogoMap = {
   "ars": "9825", "mci": "8456", "liv": "8650", "mun": "10260", "che": "8455", "tot": "8586", "avl": "10252", "new": "10261", "whu": "8191", "bha": "10204",
@@ -50,6 +50,51 @@ function calculateStandings(matches = [], participants = []) {
   return Object.values(table).map((row) => ({ ...row, gd: row.gf - row.ga })).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
 }
 
+// Memoized components for performance
+const TournamentCard = memo(({ tournament, isSelected, onClick }) => (
+  <button onClick={() => onClick(tournament.id)} className={`w-full text-left p-7 rounded-[2.5rem] border transition-all ${isSelected ? "bg-[#1e293b] border-[#1e293b] text-white shadow-xl scale-105" : "bg-white border-slate-100 hover:border-pink-200"}`}>
+    <p className="text-xs font-black uppercase tracking-wider truncate leading-none">{tournament.name}</p>
+    <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase tracking-widest">{tournament.season} SEASON</p>
+  </button>
+));
+
+const StandingsRow = memo(({ row, index, participant, getTeamData }) => (
+  <tr className="hover:bg-slate-50 group transition-all">
+    <td className="px-12 py-8 flex items-center gap-10">
+      <span className={`text-xs font-black ${index < 3 ? "text-pink-600" : "text-slate-300"} w-6`}>{index + 1}</span>
+      <img src={getLogoUrl(participant?.teamId, row.team)} className="h-16 w-16 rounded-2xl border bg-white shadow-sm p-0.5" alt="logo" />
+      <div>
+        <p className="text-xl font-black tracking-tight text-[#0f172a] leading-none uppercase">{getTeamData(participant?.teamId)?.name || "N/A"}</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-widest">PLAYER: {row.team}</p>
+      </div>
+    </td>
+    <td className="px-10 text-sm font-bold text-slate-500">{row.played}</td>
+    <td className="px-10 text-sm font-bold text-slate-500">{row.win}</td>
+    <td className="px-10 text-sm font-bold text-slate-500">{row.draw}</td>
+    <td className="px-10 text-sm font-bold text-slate-500">{row.lose}</td>
+    <td className="px-12 text-2xl font-black text-pink-600 text-center">{row.pts}</td>
+  </tr>
+));
+
+const MatchResult = memo(({ match, participants, getTeamData }) => {
+  const homeParticipant = participants.find(x => x.name === match.home);
+  const awayParticipant = participants.find(x => x.name === match.away);
+  
+  return (
+    <div className="flex items-center justify-between p-8 bg-slate-50 rounded-[3rem] border border-slate-100 group">
+      <div className="flex-1 flex items-center justify-end gap-6 text-right">
+        <span className="text-sm font-black uppercase tracking-tight text-slate-700">{getTeamData(homeParticipant?.teamId)?.name}</span>
+        <img src={getLogoUrl(homeParticipant?.teamId, match.home)} className="h-12 w-12 rounded-xl" alt="h" />
+      </div>
+      <div className="mx-12 bg-white border border-slate-200 px-10 py-4 rounded-2xl font-black text-3xl tracking-tighter shadow-sm">{match.homeGoals} - {match.awayGoals}</div>
+      <div className="flex-1 flex items-center gap-6 text-left">
+        <img src={getLogoUrl(awayParticipant?.teamId, match.away)} className="h-12 w-12 rounded-xl" alt="a" />
+        <span className="text-sm font-black uppercase tracking-tight text-slate-700">{getTeamData(awayParticipant?.teamId)?.name}</span>
+      </div>
+    </div>
+  );
+});
+
 function App() {
   const [leagues, setLeagues] = useState([]); const [teams, setTeams] = useState([]); const [tournaments, setTournaments] = useState([]);
   const [currentUser, setCurrentUser] = useState(null); const [admins, setAdmins] = useState([]);
@@ -58,13 +103,13 @@ function App() {
   const [selectedId, setSelectedId] = useState("");
   const [matchForm, setMatchForm] = useState({ home: "", away: "", homeGoals: 0, awayGoals: 0 });
   const [loading, setLoading] = useState(false); const [notice, setNotice] = useState(""); const [activeTab, setActiveTab] = useState("dashboard");
-  const [arenaSubTab, setArenaSubTab] = useState("standings");
+  const [arenaSubTab, setArenaSubTab] = useState("standings"); const [hallOfFameTab, setHallOfFameTab] = useState("champions");
 
   const selectedTournament = useMemo(() => tournaments.find((t) => t.id === selectedId), [tournaments, selectedId]);
   const tournamentParticipants = useMemo(() => normalizeParticipants(selectedTournament?.participants), [selectedTournament]);
   const standings = useMemo(() => (selectedTournament ? calculateStandings(selectedTournament.matches, tournamentParticipants) : []), [selectedTournament, tournamentParticipants]);
   const activeLeagues = useMemo(() => leagues.filter(l => teams.some(t => t.leagueId === l.id)), [leagues, teams]);
-  const getTeamData = (teamId) => teams.find(t => t.id === teamId);
+  const getTeamData = useCallback((teamId) => teams.find(t => t.id === teamId), [teams]);
 
   const fixtures = useMemo(() => {
     if (!tournamentParticipants.length) return [];
@@ -163,10 +208,10 @@ function App() {
           <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setActiveTab("dashboard")}>
             <img src="/logo.png" className="h-14 w-auto transition-transform group-hover:scale-105" alt="Logo" />
             <div className="h-8 w-[1px] bg-slate-200 mx-2" />
-            <h1 className="text-xl font-black tracking-tighter text-[#0f172a]">FL - PES ARENA</h1>
+            <h1 className="text-xl font-black tracking-tighter text-[#0f172a]">FL - PES TOURNAMENTS</h1>
           </div>
           <nav className="hidden lg:flex gap-4">
-            {[{ id: "dashboard", l: "DASHBOARD" }, { id: "tournaments", l: "ARENAS" }, { id: "create", l: "NEW ARENA", admin: true }, { id: "admin", l: "ADMIN PORTAL", admin: true }].map(t => (
+            {[{ id: "dashboard", l: "DASHBOARD" }, { id: "tournaments", l: "TOURNAMENTS" }, { id: "halloffame", l: "HALL OF FAME" }, { id: "create", l: "NEW TOURNAMENT", admin: true }, { id: "admin", l: "ADMIN PORTAL", admin: true }].map(t => (
               (!t.admin || currentUser) && <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-6 py-3 rounded-2xl text-[11px] font-black tracking-widest transition-all ${activeTab === t.id ? "bg-[#1e293b] text-white" : "text-slate-400 hover:text-slate-900"}`}>{t.l}</button>
             ))}
           </nav>
@@ -181,27 +226,70 @@ function App() {
 
         {activeTab === "dashboard" && (
           <div className="space-y-16 animate-in fade-in duration-700">
-            <div className="bg-[#0f172a] rounded-[4rem] p-24 text-white shadow-2xl relative overflow-hidden border border-slate-800">
-              <div className="relative z-10 max-w-2xl">
-                <span className="text-pink-500 font-black text-xs tracking-[0.5em] mb-6 block uppercase">Authorized Manager</span>
-                <h2 className="text-7xl font-black tracking-tighter leading-none mb-10">CONTROL THE<br/>ARENA.</h2>
-                <p className="text-slate-400 text-lg mb-12 leading-relaxed">Professional PES-inspired tournament management. Live standings, automated fixtures, and real-time results.</p>
-                <div className="flex gap-6">
-                  <button onClick={() => setActiveTab("tournaments")} className="bg-white text-black px-12 py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest hover:scale-105 transition-all">MY ARENAS</button>
-                  {currentUser && <button onClick={() => setActiveTab("create")} className="bg-pink-600 text-white px-12 py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest hover:scale-105 transition-all">NEW ARENA</button>}
-                </div>
-              </div>
-              <div className="absolute top-0 right-0 p-24 opacity-20"><img src="/logo.png" className="h-[500px] w-auto rotate-12" alt="decor" /></div>
+            <div className="text-center space-y-8">
+              <h1 className="text-6xl font-black tracking-tighter text-[#0f172a]">Tournament Center</h1>
+              <p className="text-xl text-slate-600 max-w-2xl mx-auto">Manage your football tournaments with ease</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-8">
-              {[ { l: "Tournaments", v: tournaments.length, i: "🏆" }, { l: "Matches", v: tournaments.reduce((acc, t) => acc + t.matches.length, 0), i: "⚽" }, { l: "Admins", v: admins.length || 1, i: "🛡" } ].map((s, idx) => (
-                <div key={idx} className="bg-white p-12 rounded-[3.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                  <span className="text-4xl mb-6">{s.i}</span>
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{s.l}</p>
-                  <p className="text-5xl font-black mt-2 tracking-tighter text-[#0f172a]">{s.v}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              <button 
+                onClick={() => setActiveTab("tournaments")} 
+                className="group bg-white p-12 rounded-[3rem] border-2 border-slate-100 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-pink-200"
+              >
+                <div className="text-center space-y-6">
+                  <div className="w-20 h-20 mx-auto bg-pink-100 rounded-full flex items-center justify-center group-hover:bg-pink-200 transition-colors">
+                    <span className="text-3xl">🏆</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-[#0f172a]">Current Tournament</h3>
+                  <p className="text-slate-600 leading-relaxed">View active tournaments, standings, and live match results</p>
+                  <div className="text-pink-600 font-black text-sm uppercase tracking-widest">View Now →</div>
                 </div>
-              ))}
+              </button>
+
+              <button 
+                onClick={() => currentUser ? setActiveTab("create") : setActiveTab("login")}
+                className="group bg-white p-12 rounded-[3rem] border-2 border-slate-100 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-blue-200"
+              >
+                <div className="text-center space-y-6">
+                  <div className="w-20 h-20 mx-auto bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <span className="text-3xl">📝</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-[#0f172a]">Register for Next Tournament</h3>
+                  <p className="text-slate-600 leading-relaxed">Create or join upcoming tournaments and register participants</p>
+                  <div className="text-blue-600 font-black text-sm uppercase tracking-widest">Register →</div>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => setActiveTab("halloffame")}
+                className="group bg-white p-12 rounded-[3rem] border-2 border-slate-100 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-green-200"
+              >
+                <div className="text-center space-y-6">
+                  <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <span className="text-3xl">🏛️</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-[#0f172a]">Hall of Fame</h3>
+                  <p className="text-slate-600 leading-relaxed">View tournament history, champions, and all-time records</p>
+                  <div className="text-green-600 font-black text-sm uppercase tracking-widest">View Now →</div>
+                </div>
+              </button>
+            </div>
+
+            <div className="text-center space-y-4 mt-16">
+              <div className="flex justify-center gap-8 text-slate-400">
+                <div className="text-center">
+                  <p className="text-3xl font-black text-[#0f172a]">{tournaments.length}</p>
+                  <p className="text-xs font-black uppercase tracking-widest">Active Tournaments</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-black text-[#0f172a]">{tournaments.reduce((acc, t) => acc + t.matches.length, 0)}</p>
+                  <p className="text-xs font-black uppercase tracking-widest">Matches Played</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-black text-[#0f172a]">{admins.length || 1}</p>
+                  <p className="text-xs font-black uppercase tracking-widest">Administrators</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -209,13 +297,15 @@ function App() {
         {activeTab === "tournaments" && (
           <div className="grid grid-cols-12 gap-12 animate-in fade-in duration-500">
             <aside className="col-span-3 space-y-6">
-              <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-8">ACTIVE ARENAS</h3>
+              <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-8">ACTIVE TOURNAMENTS</h3>
               <div className="space-y-2">
                 {tournaments.map(t => (
-                  <button key={t.id} onClick={() => { setSelectedId(t.id); setArenaSubTab("standings"); }} className={`w-full text-left p-7 rounded-[2.5rem] border transition-all ${selectedId === t.id ? "bg-[#1e293b] border-[#1e293b] text-white shadow-xl scale-105" : "bg-white border-slate-100 hover:border-pink-200"}`}>
-                    <p className="text-xs font-black uppercase tracking-wider truncate leading-none">{t.name}</p>
-                    <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase tracking-widest">{t.season} SEASON</p>
-                  </button>
+                  <TournamentCard 
+                    key={t.id} 
+                    tournament={t} 
+                    isSelected={selectedId === t.id}
+                    onClick={(id) => { setSelectedId(id); setArenaSubTab("standings"); }}
+                  />
                 ))}
               </div>
             </aside>
@@ -272,19 +362,15 @@ function App() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           {standings.map((row, i) => {
-                            const p = tournamentParticipants.find(x => x.name === row.team);
+                            const participant = tournamentParticipants.find(x => x.name === row.team);
                             return (
-                              <tr key={i} className="hover:bg-slate-50 group transition-all">
-                                <td className="px-12 py-8 flex items-center gap-10">
-                                  <span className={`text-xs font-black ${i < 3 ? "text-pink-600" : "text-slate-300"} w-6`}>{i + 1}</span>
-                                  <img src={getLogoUrl(p?.teamId, row.team)} className="h-16 w-16 rounded-2xl border bg-white shadow-sm p-0.5" alt="logo" />
-                                  <div>
-                                    <p className="text-xl font-black tracking-tight text-[#0f172a] leading-none uppercase">{getTeamData(p?.teamId)?.name || "N/A"}</p>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-widest">PLAYER: {row.team}</p>
-                                  </div>
-                                </td>
-                                <td className="px-10 text-sm font-bold text-slate-500">{row.played}</td><td className="px-10 text-sm font-bold text-slate-500">{row.win}</td><td className="px-10 text-sm font-bold text-slate-500">{row.draw}</td><td className="px-10 text-sm font-bold text-slate-500">{row.lose}</td><td className="px-12 text-2xl font-black text-pink-600 text-center">{row.pts}</td>
-                              </tr>
+                              <StandingsRow 
+                                key={i} 
+                                row={row} 
+                                index={i} 
+                                participant={participant}
+                                getTeamData={getTeamData}
+                              />
                             );
                           })}
                         </tbody>
@@ -296,23 +382,14 @@ function App() {
                         <div className="space-y-8">
                           <p className="text-[10px] font-black uppercase text-pink-600 tracking-[0.4em] ml-8">RECENT RESULTS</p>
                           <div className="grid gap-4">
-                            {selectedTournament.matches.slice().reverse().map((m, idx) => {
-                              const hp = tournamentParticipants.find(x => x.name === m.home);
-                              const ap = tournamentParticipants.find(x => x.name === m.away);
-                              return (
-                                <div key={idx} className="flex items-center justify-between p-8 bg-slate-50 rounded-[3rem] border border-slate-100 group">
-                                  <div className="flex-1 flex items-center justify-end gap-6 text-right">
-                                    <span className="text-sm font-black uppercase tracking-tight text-slate-700">{getTeamData(hp?.teamId)?.name}</span>
-                                    <img src={getLogoUrl(hp?.teamId, m.home)} className="h-12 w-12 rounded-xl" alt="h" />
-                                  </div>
-                                  <div className="mx-12 bg-white border border-slate-200 px-10 py-4 rounded-2xl font-black text-3xl tracking-tighter shadow-sm">{m.homeGoals} - {m.awayGoals}</div>
-                                  <div className="flex-1 flex items-center gap-6 text-left">
-                                    <img src={getLogoUrl(ap?.teamId, m.away)} className="h-12 w-12 rounded-xl" alt="a" />
-                                    <span className="text-sm font-black uppercase tracking-tight text-slate-700">{getTeamData(ap?.teamId)?.name}</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                            {selectedTournament.matches.slice().reverse().map((m, idx) => (
+                              <MatchResult 
+                                key={idx} 
+                                match={m} 
+                                participants={tournamentParticipants}
+                                getTeamData={getTeamData}
+                              />
+                            ))}
                           </div>
                         </div>
 
@@ -345,7 +422,7 @@ function App() {
               ) : (
                 <div className="h-[600px] flex flex-col items-center justify-center bg-white rounded-[4rem] border-2 border-dashed border-slate-100">
                   <span className="text-8xl mb-8 opacity-5">🎮</span>
-                  <p className="font-black uppercase tracking-[0.8em] text-[10px] text-slate-300">SELECT ARENA ENGINE</p>
+                  <p className="font-black uppercase tracking-[0.8em] text-[10px] text-slate-300">SELECT TOURNAMENT</p>
                 </div>
               )}
             </div>
@@ -354,10 +431,10 @@ function App() {
 
         {activeTab === "create" && (
           <div className="max-w-4xl mx-auto bg-white p-16 rounded-[4rem] border border-slate-100 shadow-2xl animate-in fade-in duration-700">
-            <h2 className="text-4xl font-black mb-10 tracking-tighter">Initialize Arena</h2>
+            <h2 className="text-4xl font-black mb-10 tracking-tighter">Initialize Tournament</h2>
             <form onSubmit={createTournament} className="space-y-8">
               <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Arena Title</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Tournament Title</label>
                 <input className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-sm" placeholder="e.g. Pro League 2026" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div className="space-y-5">
@@ -380,7 +457,7 @@ function App() {
                   </div>
                 ))}
               </div>
-              <button type="submit" className="w-full bg-[#1e293b] text-white py-5 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.5em] shadow-xl">START ARENA</button>
+              <button type="submit" className="w-full bg-[#1e293b] text-white py-5 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.5em] shadow-xl">START TOURNAMENT</button>
             </form>
           </div>
         )}
@@ -412,6 +489,188 @@ function App() {
           </div>
         )}
 
+        {activeTab === "halloffame" && (
+          <div className="space-y-16 animate-in fade-in duration-700">
+            <div className="text-center space-y-8">
+              <h1 className="text-6xl font-black tracking-tighter text-[#0f172a]">Hall of Fame</h1>
+              <p className="text-xl text-slate-600 max-w-2xl mx-auto">Celebrate tournament history, legendary champions, and all-time records</p>
+            </div>
+
+            <div className="flex justify-center mb-8">
+              <div className="bg-white p-2 rounded-2xl shadow-lg">
+                {["champions", "history", "records"].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setHallOfFameTab(tab)}
+                    className={`px-8 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${hallOfFameTab === tab ? "bg-[#1e293b] text-white shadow-lg" : "text-slate-400 hover:text-slate-600"}`}
+                  >
+                    {tab === "champions" ? "🏆 CHAMPIONS" : tab === "history" ? "📜 HISTORY" : "📊 RECORDS"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {hallOfFameTab === "champions" && (
+              <div className="space-y-12">
+                <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-xl">
+                  <h2 className="text-3xl font-black text-center mb-12 text-[#0f172a]">Tournament Champions</h2>
+                  {tournaments.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {tournaments.map(tournament => {
+                        const participants = normalizeParticipants(tournament.participants);
+                        const standings = calculateStandings(tournament.matches, participants);
+                        const champion = standings[0];
+                        const championData = participants.find(p => p.name === champion?.team);
+                        
+                        return (
+                          <div key={tournament.id} className="bg-gradient-to-br from-yellow-50 to-amber-50 p-8 rounded-[3rem] border-2 border-yellow-200 shadow-lg">
+                            <div className="text-center space-y-4">
+                              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-lg">
+                                <span className="text-2xl">👑</span>
+                              </div>
+                              <h3 className="text-xl font-black text-[#0f172a]">{tournament.name}</h3>
+                              <p className="text-sm font-bold text-amber-600 uppercase tracking-widest">{tournament.season} Season</p>
+                              {champion && (
+                                <>
+                                  <div className="flex items-center justify-center gap-3">
+                                    <img src={getLogoUrl(championData?.teamId, champion.team)} className="h-12 w-12 rounded-xl border-2 border-white shadow-md" alt="champion" />
+                                    <div className="text-left">
+                                      <p className="text-lg font-black text-[#0f172a]">{getTeamData(championData?.teamId)?.name || "N/A"}</p>
+                                      <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">{champion.team}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-4 rounded-2xl">
+                                    <p className="text-2xl font-black text-amber-600">{champion.pts} PTS</p>
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">W: {champion.win} D: {champion.draw} L: {champion.lose}</p>
+                                  </div>
+                                </>
+                              )}
+                              <p className="text-sm font-bold text-slate-600">{tournament.matches.length} Matches Played</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <span className="text-6xl mb-6 block opacity-20">🏆</span>
+                      <p className="text-xl font-black text-slate-400 uppercase tracking-widest">No tournaments completed yet</p>
+                      <p className="text-slate-500 mt-4">Complete tournaments to see champions here</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {hallOfFameTab === "history" && (
+              <div className="space-y-12">
+                <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-xl">
+                  <h2 className="text-3xl font-black text-center mb-12 text-[#0f172a]">Tournament History</h2>
+                  {tournaments.length > 0 ? (
+                    <div className="space-y-6">
+                      {tournaments.sort((a, b) => new Date(b.season) - new Date(a.season)).map((tournament, index) => (
+                        <div key={tournament.id} className="bg-slate-50 p-8 rounded-[3rem] border border-slate-200 hover:shadow-lg transition-all">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-6">
+                              <div className="w-12 h-12 bg-gradient-to-br from-slate-400 to-slate-600 rounded-full flex items-center justify-center text-white font-black text-lg">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <h3 className="text-xl font-black text-[#0f172a]">{tournament.name}</h3>
+                                <p className="text-sm font-bold text-slate-600 uppercase tracking-widest">{tournament.season} Season</p>
+                              </div>
+                            </div>
+                            <div className="text-right space-y-2">
+                              <p className="text-lg font-black text-[#0f172a]">{tournament.participants.length} Participants</p>
+                              <p className="text-sm font-bold text-slate-600">{tournament.matches.length} Matches</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <span className="text-6xl mb-6 block opacity-20">📜</span>
+                      <p className="text-xl font-black text-slate-400 uppercase tracking-widest">No tournament history yet</p>
+                      <p className="text-slate-500 mt-4">Create and complete tournaments to build history</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {hallOfFameTab === "records" && (
+              <div className="space-y-12">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-xl">
+                    <h2 className="text-2xl font-black mb-8 text-[#0f172a]">All-Time Statistics</h2>
+                    <div className="space-y-6">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-200">
+                        <p className="text-3xl font-black text-blue-600">{tournaments.length}</p>
+                        <p className="text-sm font-black text-blue-800 uppercase tracking-widest">Total Tournaments</p>
+                      </div>
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200">
+                        <p className="text-3xl font-black text-green-600">{tournaments.reduce((acc, t) => acc + t.matches.length, 0)}</p>
+                        <p className="text-sm font-black text-green-800 uppercase tracking-widest">Total Matches Played</p>
+                      </div>
+                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-6 rounded-2xl border border-purple-200">
+                        <p className="text-3xl font-black text-purple-600">{tournaments.reduce((acc, t) => acc + t.participants.length, 0)}</p>
+                        <p className="text-sm font-black text-purple-800 uppercase tracking-widest">Total Participants</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-xl">
+                    <h2 className="text-2xl font-black mb-8 text-[#0f172a]">Top Performers</h2>
+                    <div className="space-y-4">
+                      {(() => {
+                        const allStandings = [];
+                        tournaments.forEach(tournament => {
+                          const participants = normalizeParticipants(tournament.participants);
+                          const standings = calculateStandings(tournament.matches, participants);
+                          standings.forEach(row => {
+                            allStandings.push({
+                              ...row,
+                              tournament: tournament.name,
+                              season: tournament.season
+                            });
+                          });
+                        });
+                        
+                        const topPerformers = allStandings
+                          .sort((a, b) => b.pts - a.pts)
+                          .slice(0, 5);
+                        
+                        return topPerformers.length > 0 ? topPerformers.map((performer, index) => (
+                          <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-sm ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-slate-400'}`}>
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-black text-[#0f172a]">{performer.team}</p>
+                                <p className="text-xs font-bold text-slate-600">{performer.tournament} - {performer.season}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xl font-black text-pink-600">{performer.pts} pts</p>
+                              <p className="text-xs font-black text-slate-500">W: {performer.win} D: {performer.draw} L: {performer.lose}</p>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="text-center py-8">
+                            <p className="text-slate-400 font-black">No performance data yet</p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "login" && (
           <div className="max-w-sm mx-auto py-32 animate-in fade-in zoom-in-95">
             <form onSubmit={async (e) => { e.preventDefault(); const r = await apiRequest("/.netlify/functions/auth-login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(loginForm) }); if (r.ok) { await refreshAll(); setActiveTab("dashboard"); } }} className="bg-white p-16 rounded-[4rem] border border-slate-200 shadow-2xl space-y-8">
@@ -424,7 +683,7 @@ function App() {
         )}
       </main>
 
-      <footer className="py-24 text-center opacity-10 text-[10px] font-black uppercase tracking-[1.5em]">Reiken Arena Engine</footer>
+      <footer className="py-24 text-center opacity-10 text-[10px] font-black uppercase tracking-[1.5em]">Reiken Tournament Engine</footer>
     </div>
   );
 }
