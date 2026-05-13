@@ -86,11 +86,11 @@ const CreateTournament = memo(({ form, setForm, activeLeagues, teams, onCreateTo
               + Add New
             </button>
           </div>
-          {form.participants.map((p, idx) => (
+          {discordError && (
+              <div className="text-red-500 text-[10px] font-bold mb-2 ml-1">⚠ Discord Error: {discordError}</div>
+            )}
+            {form.participants.map((p, idx) => (
             <div key={idx} className="flex gap-4 items-center bg-slate-50 p-4 rounded-[2rem] border border-slate-100">
-              {discordError && idx === 0 && (
-                <div className="text-red-500 text-[10px] mb-1 w-full">Discord Error: {discordError}</div>
-              )}
               {discordMembers.length > 0 ? (
                 <Select
                   className="flex-1"
@@ -117,17 +117,17 @@ const CreateTournament = memo(({ form, setForm, activeLeagues, teams, onCreateTo
                   required
                 />
               )}
-              {discordLoading && idx === 0 && (
-                <div className="text-blue-500 text-[10px] animate-pulse">Loading...</div>
+              {discordLoading && (
+                <div className="text-blue-500 text-[10px] font-bold mb-2 ml-1 animate-pulse">↻ Loading Discord members...</div>
               )}
               <Select
                 className="flex-1"
                 classNamePrefix="react-select"
-                placeholder="League"
+                placeholder="Search League..."
                 value={p.leagueId ? { value: p.leagueId, label: activeLeagues.find(l => l.id === p.leagueId)?.name || 'League' } : null}
                 onChange={opt => handleParticipantChange(idx, 'leagueId', opt?.value || '')}
                 options={activeLeagues.map(l => ({ value: l.id, label: l.name }))}
-                isSearchable={false}
+                isSearchable={true}
                 isClearable={true}
                 styles={selectStyles}
                 required
@@ -135,11 +135,11 @@ const CreateTournament = memo(({ form, setForm, activeLeagues, teams, onCreateTo
               <Select
                 className="flex-1"
                 classNamePrefix="react-select"
-                placeholder="Team"
+                placeholder="Search Team..."
                 value={p.teamId ? { value: p.teamId, label: teams.find(t => t.id === p.teamId)?.name || 'Team' } : null}
                 onChange={opt => handleParticipantChange(idx, 'teamId', opt?.value || '')}
                 options={teams.filter(t => t.leagueId === p.leagueId).map(t => ({ value: t.id, label: t.name }))}
-                isSearchable={false}
+                isSearchable={true}
                 isClearable={true}
                 styles={selectStyles}
                 isDisabled={!p.leagueId}
