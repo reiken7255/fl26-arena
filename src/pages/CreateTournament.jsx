@@ -3,15 +3,17 @@ import Select from 'react-select';
 import { createParticipant } from '../utils/tournamentUtils';
 
 const selectStyles = {
-  control: (base) => ({
+  control: (base, state) => ({
     ...base,
     backgroundColor: 'white',
-    border: '1px solid #e2e8f0',
+    border: state.isFocused ? '2px solid #6366f1' : '1px solid #e2e8f0',
     borderRadius: '0.75rem',
     padding: '0.25rem',
     fontSize: '0.75rem',
     fontWeight: '700',
     minHeight: '2.25rem',
+    outline: 'none',
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(99, 102, 241, 0.2)' : 'none',
   }),
   input: (base) => ({
     ...base,
@@ -35,8 +37,21 @@ const selectStyles = {
     ...base,
     fontSize: '0.75rem',
     fontWeight: '700',
-    backgroundColor: state.isSelected ? '#fce7f3' : 'white',
+    backgroundColor: state.isSelected ? '#fce7f3' : state.isFocused ? '#f1f5f9' : 'white',
     color: '#1e293b',
+    padding: '8px 12px',
+    cursor: 'pointer',
+  }),
+  menu: (base) => ({
+    ...base,
+    border: '1px solid #e2e8f0',
+    borderRadius: '0.75rem',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    overflow: 'hidden',
+  }),
+  menuList: (base) => ({
+    ...base,
+    padding: '4px',
   }),
 };
 
