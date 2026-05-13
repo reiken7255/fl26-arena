@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
-// Hardcoded Discord configuration
-const DISCORD_GUILD_ID = "1426212910497267879"; // Örnek sunucu ID - buraya gerçek sunucu ID'nizi girin
-const DISCORD_BOT_TOKEN = "MTUwMzg1ODM3ODU0MjQxNTk0Mg.GKPLcz.0H6lqFnT7QZBn1wcFLO_McmdDyCSwCjwYJG_GM"; // Örnek bot token - buraya gerçek bot token'ınızı girin
+// Environment variables (set in .env or Netlify dashboard)
+const DISCORD_GUILD_ID = import.meta.env.VITE_DISCORD_GUILD_ID || "";
+const DISCORD_BOT_TOKEN = import.meta.env.VITE_DISCORD_BOT_TOKEN || "";
 
 export const useDiscordMembers = () => {
   const [members, setMembers] = useState([]);
