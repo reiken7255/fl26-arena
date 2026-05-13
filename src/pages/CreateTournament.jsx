@@ -2,6 +2,44 @@ import { memo } from 'react';
 import Select from 'react-select';
 import { createParticipant } from '../utils/tournamentUtils';
 
+const selectStyles = {
+  control: (base) => ({
+    ...base,
+    backgroundColor: 'white',
+    border: '1px solid #e2e8f0',
+    borderRadius: '0.75rem',
+    padding: '0.25rem',
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    minHeight: '2.25rem',
+  }),
+  input: (base) => ({
+    ...base,
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    margin: 0,
+    padding: '0 0.25rem',
+  }),
+  placeholder: (base) => ({
+    ...base,
+    fontSize: '0.75rem',
+    color: '#94a3b8',
+  }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    color: '#94a3b8',
+    padding: '4px',
+  }),
+  indicatorSeparator: () => ({ display: 'none' }),
+  option: (base, state) => ({
+    ...base,
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    backgroundColor: state.isSelected ? '#fce7f3' : 'white',
+    color: '#1e293b',
+  }),
+};
+
 const CreateTournament = memo(({ form, setForm, activeLeagues, teams, onCreateTournament, discordMembers, discordLoading, discordError }) => {
   const handleParticipantChange = (index, field, value) => {
     const list = [...form.participants];
@@ -50,14 +88,14 @@ const CreateTournament = memo(({ form, setForm, activeLeagues, teams, onCreateTo
           </div>
           {form.participants.map((p, idx) => (
             <div key={idx} className="flex gap-4 items-center bg-slate-50 p-4 rounded-[2rem] border border-slate-100">
-              {discordError && (
-                <div className="text-red-500 text-[10px] mb-1">Discord Error: {discordError}</div>
+              {discordError && idx === 0 && (
+                <div className="text-red-500 text-[10px] mb-1 w-full">Discord Error: {discordError}</div>
               )}
               {discordMembers.length > 0 ? (
                 <Select
                   className="flex-1"
                   classNamePrefix="react-select"
-                  placeholder="Search Discord Member..."
+                  placeholder="Search Player..."
                   value={p.name ? { value: p.name, label: p.name } : null}
                   onChange={opt => handleParticipantChange(idx, 'name', opt?.value || '')}
                   options={discordMembers.map(m => ({
@@ -66,79 +104,50 @@ const CreateTournament = memo(({ form, setForm, activeLeagues, teams, onCreateTo
                   }))}
                   isSearchable={true}
                   isClearable={true}
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      backgroundColor: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '0.75rem',
-                      padding: '0.5rem',
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      minHeight: '3rem',
-                    }),
-                    input: (base) => ({
-                      ...base,
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                    }),
-                    placeholder: (base) => ({
-                      ...base,
-                      fontSize: '0.75rem',
-                      color: '#94a3b8',
-                    }),
-                    dropdownIndicator: (base) => ({
-                      ...base,
-                      color: '#94a3b8',
-                    }),
-                    option: (base, state) => ({
-                      ...base,
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      backgroundColor: state.isSelected ? '#fce7f3' : 'white',
-                      color: '#1e293b',
-                      '&:hover': {
-                        backgroundColor: '#f8fafc',
-                      },
-                    }),
-                  }}
+                  styles={selectStyles}
                   required
                 />
               ) : (
                 <input
-                  className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-bold"
-                  placeholder={discordLoading ? "Loading Discord members..." : "Player Name"}
+                  className="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-bold"
+                  placeholder={discordLoading ? "Loading..." : "Player Name"}
                   value={p.name}
                   onChange={e => handleParticipantChange(idx, 'name', e.target.value)}
                   disabled={discordLoading}
                   required
                 />
               )}
-              {discordLoading && (
+              {discordLoading && idx === 0 && (
                 <div className="text-blue-500 text-[10px] animate-pulse">Loading...</div>
               )}
-              <select 
-                className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-black uppercase" 
-                value={p.leagueId} 
-                onChange={e => handleParticipantChange(idx, 'leagueId', e.target.value)} 
+              <Select
+                className="flex-1"
+                classNamePrefix="react-select"
+                placeholder="League"
+                value={p.leagueId ? { value: p.leagueId, label: activeLeagues.find(l => l.id === p.leagueId)?.name || 'League' } : null}
+                onChange={opt => handleParticipantChange(idx, 'leagueId', opt?.value || '')}
+                options={activeLeagues.map(l => ({ value: l.id, label: l.name }))}
+                isSearchable={false}
+                isClearable={true}
+                styles={selectStyles}
                 required
-              >
-                <option value="">League</option>
-                {activeLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
-              <select 
-                className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-black uppercase" 
-                value={p.teamId} 
-                onChange={e => handleParticipantChange(idx, 'teamId', e.target.value)} 
-                disabled={!p.leagueId} 
+              />
+              <Select
+                className="flex-1"
+                classNamePrefix="react-select"
+                placeholder="Team"
+                value={p.teamId ? { value: p.teamId, label: teams.find(t => t.id === p.teamId)?.name || 'Team' } : null}
+                onChange={opt => handleParticipantChange(idx, 'teamId', opt?.value || '')}
+                options={teams.filter(t => t.leagueId === p.leagueId).map(t => ({ value: t.id, label: t.name }))}
+                isSearchable={false}
+                isClearable={true}
+                styles={selectStyles}
+                isDisabled={!p.leagueId}
                 required
-              >
-                <option value="">Team</option>
-                {teams.filter(t => t.leagueId === p.leagueId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <button 
-                type="button" 
-                onClick={() => removeParticipant(idx)} 
+              />
+              <button
+                type="button"
+                onClick={() => removeParticipant(idx)}
                 className="text-slate-200 hover:text-rose-600 font-black text-xl px-2"
               >
                 ✕
