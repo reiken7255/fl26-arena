@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, memo } from "react";
+import { useDiscordMembers } from "./hooks/useDiscordMembers";
 
 const teamLogoMap = {
   "ars": "9825", "mci": "8456", "liv": "8650", "mun": "10260", "che": "8455", "tot": "8586", "avl": "10252", "new": "10261", "whu": "8191", "bha": "10204",
@@ -96,6 +97,7 @@ const MatchResult = memo(({ match, participants, getTeamData }) => {
 });
 
 function App() {
+  console.log('App component rendered');
   const [leagues, setLeagues] = useState([]); const [teams, setTeams] = useState([]); const [tournaments, setTournaments] = useState([]);
   const [currentUser, setCurrentUser] = useState(null); const [admins, setAdmins] = useState([]);
   const [form, setForm] = useState(initialForm); const [adminCreateForm, setAdminCreateForm] = useState(initialAdminForm);
@@ -104,6 +106,9 @@ function App() {
   const [matchForm, setMatchForm] = useState({ home: "", away: "", homeGoals: 0, awayGoals: 0 });
   const [loading, setLoading] = useState(false); const [notice, setNotice] = useState(""); const [activeTab, setActiveTab] = useState("dashboard");
   const [arenaSubTab, setArenaSubTab] = useState("standings"); const [hallOfFameTab, setHallOfFameTab] = useState("champions");
+  
+  // Discord members (hardcoded configuration)
+  const { members: discordMembers, loading: discordLoading, error: discordError } = useDiscordMembers();
 
   const selectedTournament = useMemo(() => tournaments.find((t) => t.id === selectedId), [tournaments, selectedId]);
   const tournamentParticipants = useMemo(() => normalizeParticipants(selectedTournament?.participants), [selectedTournament]);
@@ -437,6 +442,13 @@ function App() {
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Tournament Title</label>
                 <input className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-sm" placeholder="e.g. Pro League 2026" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
               </div>
+              
+              {discordError && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-black">
+                  Discord Error: {discordError}
+                </div>
+              )}
+              
               <div className="space-y-5">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-[10px] font-black uppercase text-pink-600 tracking-widest ml-4">Player Registry</h3>
@@ -444,7 +456,30 @@ function App() {
                 </div>
                 {form.participants.map((p, idx) => (
                   <div key={idx} className="flex gap-4 items-center bg-slate-50 p-4 rounded-[2rem] border border-slate-100">
-                    <input className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-bold" placeholder="Player Name" value={p.name} onChange={e => { const list = [...form.participants]; list[idx].name = e.target.value; setForm({ ...form, participants: list }); }} required />
+                    {discordMembers.length > 0 ? (
+                      <select 
+                        className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-bold" 
+                        value={p.name} 
+                        onChange={e => { const list = [...form.participants]; list[idx].name = e.target.value; setForm({ ...form, participants: list }); }} 
+                        required
+                      >
+                        <option value="">Select Discord Member</option>
+                        {discordMembers.map(member => (
+                          <option key={member.id} value={member.displayName}>
+                            {member.displayName} (@{member.username})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input 
+                        className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-bold" 
+                        placeholder={discordLoading ? "Loading Discord members..." : "Player Name"} 
+                        value={p.name} 
+                        onChange={e => { const list = [...form.participants]; list[idx].name = e.target.value; setForm({ ...form, participants: list }); }} 
+                        disabled={discordLoading}
+                        required 
+                      />
+                    )}
                     <select className="flex-1 bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-black uppercase" value={p.leagueId} onChange={e => { const list = [...form.participants]; list[idx].leagueId = e.target.value; list[idx].teamId = ""; setForm({ ...form, participants: list }); }} required>
                       <option value="">League</option>
                       {activeLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -456,6 +491,11 @@ function App() {
                     <button type="button" onClick={() => { if (form.participants.length > 2) { const list = form.participants.filter((_, i) => i !== idx); setForm({ ...form, participants: list }); } }} className="text-slate-200 hover:text-rose-600 font-black text-xl px-2">✕</button>
                   </div>
                 ))}
+                {discordLoading && (
+                  <div className="text-center text-blue-600 text-xs font-black animate-pulse">
+                    Loading Discord members...
+                  </div>
+                )}
               </div>
               <button type="submit" className="w-full bg-[#1e293b] text-white py-5 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.5em] shadow-xl">START TOURNAMENT</button>
             </form>

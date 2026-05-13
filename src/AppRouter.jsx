@@ -9,12 +9,16 @@ import CreateTournament from './pages/CreateTournament';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import { useTournamentData } from './hooks/useTournamentData';
+import { useDiscordMembers } from './hooks/useDiscordMembers';
 import { normalizeParticipants, calculateStandings } from './utils/tournamentUtils';
 
 const AppRouter = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
+  // Discord members for player selection
+  const { members: discordMembers, loading: discordLoading, error: discordError } = useDiscordMembers();
+
   const {
     leagues, teams, tournaments, currentUser, admins, form, adminCreateForm, loginForm,
     selectedId, matchForm, loading, notice, selectedTournament, activeLeagues,
@@ -226,7 +230,10 @@ const AppRouter = () => {
       onCreateAdmin: handleCreateAdmin,
       onExportJson: handleExportJson,
       onImportJson: handleImportJson,
-      onResetDatabase: handleResetDatabase
+      onResetDatabase: handleResetDatabase,
+      discordMembers,
+      discordLoading,
+      discordError
     };
 
     switch (activeTab) {
